@@ -72,7 +72,16 @@ menu), and the Electron main process wires those signals to OS features (tray, b
 
 ## 🚀 Getting started
 
-The fork's added features are available when you run from source.
+### Install / update (Linux, `.deb`)
+
+Install — or update an existing install — from the latest [GitHub release](https://github.com/Bae-ChangHyun/google-chat-electron/releases/latest):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/google-chat-electron/main/scripts/install.sh | bash
+```
+
+The script downloads the latest release's `.deb` and installs it with `apt` (it will prompt for `sudo`).
+Re-run the same command any time to update.
 
 ### Run from source (this fork)
 
