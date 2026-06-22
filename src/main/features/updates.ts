@@ -121,18 +121,63 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
     return;
   }
 
-  // pkexec shows a graphical password prompt (polkit).
+  // Offer a manual path when the one-click install can't complete (no polkit
+  // prompt, dismissed auth, etc.) so the user is never left stuck.
+  const manualFallback = (reason: string) => {
+    log.error(`update install fallback: ${reason}`);
+    toast(window, {text: 'Manual install needed', state: 'error'});
+    dialog
+      .showMessageBox(window, {
+        type: 'warning',
+        message: 'Finish the update manually',
+        detail:
+          `The update was downloaded but couldn't be installed automatically.\n\n` +
+          `Open the package to install it, or run:\n  sudo apt install ${dest}`,
+        buttons: ['Open package', 'Show in folder', 'Close'],
+        defaultId: 0,
+        cancelId: 2,
+      })
+      .then(({response}) => {
+        if (response === 0) {
+          shell.openPath(dest);
+        } else if (response === 1) {
+          shell.showItemInFolder(dest);
+        }
+      });
+  };
+
+  // pkexec shows a graphical password prompt (polkit). If no agent answers in
+  // time, don't let the toast hang on "Installing".
   toast(window, {text: 'Installing… (enter password)', state: 'install'});
   const child = spawn('pkexec', ['apt-get', 'install', '-y', dest], {stdio: 'ignore'});
+  let settled = false;
+  const watchdog = setTimeout(() => {
+    if (!settled) {
+      settled = true;
+      try {
+        child.kill();
+      } catch {
+        /* ignore */
+      }
+      manualFallback('no response within 90s (polkit prompt likely did not appear)');
+    }
+  }, 90000);
+
   child.on('error', () => {
-    toast(window, {text: 'Could not start installer', state: 'error'});
-    dialog.showMessageBox(window, {
-      type: 'info',
-      message: 'Could not start the installer',
-      detail: `Install it manually:\n\n  sudo apt install ${dest}`,
-    });
+    if (settled) {
+      return;
+    }
+    settled = true;
+    clearTimeout(watchdog);
+    manualFallback('failed to spawn pkexec');
   });
+
   child.on('exit', (code) => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    clearTimeout(watchdog);
     if (code === 0) {
       toast(window, {text: `Updated to ${release.version}`, state: 'done'});
       dialog
@@ -149,10 +194,11 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
             app.exit();
           }
         });
-    } else if (code !== 126 && code !== 127) {
-      // 126/127 = user dismissed the polkit prompt; stay quiet then.
-      toast(window, {text: 'Update failed', state: 'error'});
-      dialog.showMessageBox(window, {type: 'error', message: 'Update failed', detail: `Installer exited with code ${code}.`});
+    } else if (code === 126) {
+      // User explicitly dismissed the auth prompt — just clear the toast.
+      toast(window, {text: 'Update cancelled', state: 'error'});
+    } else {
+      manualFallback(`pkexec exited with code ${code}`);
     }
   });
 };
