@@ -1,41 +1,51 @@
-import {BrowserWindow, Notification, app, nativeImage, shell} from 'electron';
+import {BrowserWindow, app, ipcMain, shell} from 'electron';
 import fs from 'fs';
 import path from 'path';
 import log from 'electron-log';
 
-const appIcon = () =>
-  nativeImage.createFromPath(path.join(app.getAppPath(), 'resources/icons/normal/256.png'));
-
-// Save attachment downloads straight into the OS Downloads folder instead of
-// bouncing the URL out to the system browser. Triggered by downloadURL() in
-// externalLinks.ts (and by any direct download the page initiates).
+// Save attachment downloads into the Downloads folder and surface progress as an
+// in-app toast (rendered by the downloadToast preload) — independent of the OS
+// notification daemon. Triggered by downloadURL() in externalLinks.ts and by any
+// download the page initiates directly.
 export default (window: BrowserWindow) => {
+  // Renderer asks to reveal a finished file in the file manager.
+  ipcMain.on('open-download', (_event, savePath: string) => {
+    if (savePath) {
+      shell.showItemInFolder(savePath);
+    }
+  });
+
+  const send = (channel: string, payload: unknown) => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(channel, payload);
+    }
+  };
+
   window.webContents.session.on('will-download', (event, item) => {
-    const downloadsDir = app.getPath('downloads');
-    const savePath = uniquePath(path.join(downloadsDir, item.getFilename()));
+    const savePath = uniquePath(path.join(app.getPath('downloads'), item.getFilename()));
     item.setSavePath(savePath);
 
     const filename = item.getFilename();
-    notifyStart(filename);
+    send('download:start', {filename});
 
-    // Reflect progress on the taskbar / dock icon (Unity LauncherEntry on GNOME).
     item.on('updated', (_event, state) => {
       if (state !== 'progressing' || item.isPaused()) {
         return;
       }
       const total = item.getTotalBytes();
       const received = item.getReceivedBytes();
-      // -1 renders an indeterminate bar when the size is unknown.
-      window.setProgressBar(total > 0 ? received / total : -1);
+      const fraction = total > 0 ? received / total : -1;
+      window.setProgressBar(fraction); // taskbar / dock progress
+      send('download:progress', {filename, percent: total > 0 ? Math.round(fraction * 100) : -1});
     });
 
     item.once('done', (_event, state) => {
-      window.setProgressBar(-1); // remove the progress bar
+      window.setProgressBar(-1); // clear the progress bar
       if (state === 'completed') {
-        notifyComplete(filename, savePath);
+        send('download:done', {filename, savePath});
       } else {
         log.error(`Download failed (${state}): ${filename}`);
-        notifyFailed(filename);
+        send('download:failed', {filename});
       }
     });
   });
@@ -54,33 +64,4 @@ const uniquePath = (target: string): string => {
     counter++;
   }
   return candidate;
-};
-
-const notifyStart = (filename: string) => {
-  new Notification({
-    title: 'Download started',
-    body: filename,
-    silent: true,
-    icon: appIcon(),
-  }).show();
-};
-
-const notifyComplete = (filename: string, savePath: string) => {
-  const notification = new Notification({
-    title: 'Download complete',
-    body: filename,
-    silent: false,
-    icon: appIcon(),
-  });
-  notification.on('click', () => shell.showItemInFolder(savePath));
-  notification.show();
-};
-
-const notifyFailed = (filename: string) => {
-  new Notification({
-    title: 'Download failed',
-    body: filename,
-    silent: false,
-    icon: appIcon(),
-  }).show();
 };

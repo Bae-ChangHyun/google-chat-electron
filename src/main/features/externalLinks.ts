@@ -35,8 +35,10 @@ export default (window: BrowserWindow) => {
     }
 
     // Attachment downloads: pull them in-app (Downloads folder) instead of
-    // bouncing the URL to the system browser. Account-agnostic (/u/<n>/).
-    const isDownloadUrl = /:\/\/chat\.google\.com\/u\/\d+\/api\/get_attachment_url/.test(url);
+    // bouncing the URL to the system browser. Host-agnostic — Chat runs under
+    // both chat.google.com and mail.google.com/chat (multi-account /u/<n>/).
+    const isDownloadUrl = /\/api\/get_attachment_url/.test(url) || /[?&]attachment_id=/.test(url);
+    log.info(`[externalLinks] open url=${url} download=${isDownloadUrl}`);
     if (isDownloadUrl) {
       window.webContents.downloadURL(url);
       return ACTION_DENIED;
