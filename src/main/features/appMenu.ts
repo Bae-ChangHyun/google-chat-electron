@@ -311,12 +311,6 @@ export default (window: BrowserWindow) => {
           ]
         },
         {
-          label: 'Check for Updates…',
-          click: () => {
-            checkForUpdates(window, false)
-          }
-        },
-        {
           label: 'About',
           click: () => {
             aboutPanel(window)
@@ -328,6 +322,12 @@ export default (window: BrowserWindow) => {
         {
           label: `Version ${app.getVersion()}${ environment.isDev ? '-(dev)' : ''}`,
           enabled: false
+        },
+        {
+          label: 'Check for Updates…',
+          click: () => {
+            checkForUpdates(window, false)
+          }
         },
       ]
     }
