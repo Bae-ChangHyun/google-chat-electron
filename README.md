@@ -1,179 +1,188 @@
-# Desktop app for Google Chat
+<div align="center">
 
-[![latest-tag](https://badgen.net/github/release/zviryatko/google-chat-electron)](https://github.com/zviryatko/google-chat-electron/releases)
-[![downloads](https://img.shields.io/github/downloads/zviryatko/google-chat-electron/total?cacheSeconds=3600)](https://somsubhra.github.io/github-release-stats/?username=zviryatko&repository=google-chat-electron&page=1&per_page=30)
-[![release](https://github.com/zviryatko/google-chat-electron/actions/workflows/release.yml/badge.svg)](https://github.com/zviryatko/google-chat-electron/actions/workflows/release.yml)
+# Google Chat Desktop
 
-[![google-chat-desktop](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/google-chat-desktop)
+**An unofficial desktop client for [Google Chat](https://chat.google.com) — a Chromium wrapper with native niceties.**
+This fork adds multi-account switching, in-app downloads, notification deep-links, and tray-based presence control.
 
-An unofficial desktop app for [Google Chat](http://chat.google.com) built with [Electron](https://www.electronjs.org)
+[![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE.txt)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-orange?style=flat-square)](#supported-platforms)
+[![Built with](https://img.shields.io/badge/Built%20with-Electron%20%2B%20TypeScript-blueviolet?style=flat-square)](#tech-stack)
+[![Fork of](https://img.shields.io/badge/Fork%20of-zviryatko%2Fgoogle--chat--electron-lightgrey?style=flat-square)](https://github.com/zviryatko/google-chat-electron)
 
-> **About this fork**
-> This is a personal, modified fork of [zviryatko/google-chat-electron](https://github.com/zviryatko/google-chat-electron)
-> (which is itself a fork of [ankurk91/google-chat-electron](https://github.com/ankurk91/google-chat-electron)).
-> It adds multi-account switching, in-app downloads, notification deep-links, an unread "flash", and presence (status)
-> control from the tray. See [Added in this fork](#added-in-this-fork) for the full list of changes.
-> Licensed under GNU GPLv3, same as upstream.
+</div>
 
-# Disclaimer
+---
 
-It is a fork of the original [Google Chat Electron](https://github.com/ankurk91/google-chat-electron) project. The
-original project is no longer maintained, so I decided to fork it and continue the development.
-Since I don't have a Mac, I can't test the MacOS build. If you have a Mac and want to help me test the MacOS build, please
-let me know.
+> **⚠️ Note**
+> This is a **personal, unofficial fork**. It wraps the Google Chat web app in Electron — it is not built or endorsed by Google.
+> The features added in this fork (see below) currently ship **from source only**; the prebuilt packages linked under
+> *Getting started* are upstream releases and do **not** include them.
 
-Typescript and Electron also not my superpower, so I will be glad to receive any help in this area.
+---
 
+## About
 
-### Installation (Debian based Linux)
+`google-chat-electron` is a thin desktop shell around the Google Chat web app: it runs a local Chromium instance and
+layers OS-level conveniences (system tray, desktop notifications, unread badges) on top of the unchanged web client. It
+stores no data of its own.
 
-* You can download the latest debian installer from
-  [releases](https://github.com/zviryatko/google-chat-electron/releases/latest) section
-* Install the debian package with this command: (correct the file path yourself)
+This repository is a personal fork of [**zviryatko/google-chat-electron**](https://github.com/zviryatko/google-chat-electron)
+(itself a fork of [ankurk91/google-chat-electron](https://github.com/ankurk91/google-chat-electron)), kept GPLv3 and
+extended with the account, download, and presence features described below.
 
-```bash
-sudo apt install ~/path/to/google-chat-electron-xxx-amd64.deb
+### 💡 Why this fork
+
+- **Problem**: the upstream wrapper is single-account, bounces file downloads out to the system browser, and offers no
+  way to set your Chat status without diving into the web UI.
+- **Solution**: this fork handles multiple accounts in one window, downloads attachments in place with progress, and
+  exposes presence (Active / Away / Do not disturb) right from the tray.
+
+---
+
+## ✨ Features
+
+### Core (from upstream)
+
+- **System tray** — unread indicator, offline indicator, and close-to-tray on window close.
+- **Desktop notifications** — clicking a notification focuses the app.
+- **Unread counter in the dock**, auto-start at login (configurable), and offline auto-retry every 60s.
+- **External links** open in your OS default browser; window position/size is preserved.
+- **Single-instance** enforcement and a `Ctrl+F` search shortcut.
+
+### Added in this fork
+
+- **Multiple accounts** — the `Accounts` menu switches between Google accounts (`/u/0`, `/u/1`, …) in the same window.
+  Only accounts you've actually opened are listed, with an `Add account…` entry, and the last used account is remembered.
+- **In-app downloads** — attachments save straight to your `Downloads` folder instead of bouncing to the system browser,
+  with start / taskbar-progress / complete notifications and automatic `name (1).ext` de-duplication.
+- **Notification deep-links** — clicking a notification opens that specific conversation in the existing window rather
+  than spawning a new one.
+- **Unread flash** — the taskbar / dock entry flashes when a new message arrives while the window is unfocused.
+- **Presence control from the tray** — `Status ▸ Active / Away / Do not disturb` drives Google Chat's own status menu,
+  and the tray reflects the current status (radio check + tooltip).
+
+---
+
+## How it works
+
+```
+  Google Chat web app   →   Electron (Chromium)   →   Native shell
+  (unchanged web client)    preload + main process     tray · notifications · downloads · presence
 ```
 
-### Uninstall (Debian based Linux)
+The web app runs untouched inside Chromium. A preload script reads/acts on the page (unread count, favicon, status
+menu), and the Electron main process wires those signals to OS features (tray, badges, downloads, window state).
 
-* Logout and Quit from app
-* Remove the app with this command
+---
+
+## 🛠️ Tech stack
+
+- **Runtime**: Electron 36
+- **Language**: TypeScript (compiled with `tsc`, bundled with esbuild)
+- **Key libraries**: `electron-store` (settings), `auto-launch` (start at login), `electron-log`, `throttle-debounce`
+- **Packaging**: `@electron/packager`, `electron-installer-debian`
+
+---
+
+## 🚀 Getting started
+
+The fork's added features are available when you run from source.
+
+### Run from source (this fork)
 
 ```bash
+git clone https://github.com/Bae-ChangHyun/google-chat-electron.git
+cd google-chat-electron
+pnpm install          # or: npm install
+npm start             # builds (tsc + esbuild) and launches Electron
+```
+
+<details>
+<summary><strong>Prebuilt packages (upstream releases — without this fork's features)</strong></summary>
+
+These install [zviryatko's upstream builds](https://github.com/zviryatko/google-chat-electron/releases/latest).
+
+**Debian / Ubuntu**
+```bash
+sudo apt install ~/path/to/google-chat-electron-xxx-amd64.deb
+# uninstall:
 sudo apt-get remove --purge google-chat-electron
 ```
 
-* The uninstallation script should remove all relevant files and folders.
+**Snap**
 
-### Installation (Mac)
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/google-chat-desktop)
 
-* Homebrew users can run
-
+**macOS**
 ```bash
 brew install --cask --no-quarantine google-chat-electron
-```
-
-or
-
-* Download the zip (darwin) file from [releases](https://github.com/zviryatko/google-chat-electron/releases/latest)
-* Extract the zip file
-* Move the app to your `~/Applications` folder
-* Fix the permission issue with this command
-
-```bash
+# or download the darwin zip from releases, move to ~/Applications, then:
 sudo xattr -rd com.apple.quarantine ~/Applications/google-chat-electron.app
 ```
 
-* Above command should fix the Mac-OS Gatekeeper [issue](https://apple.stackexchange.com/questions/262355/)
-
-### Uninstall (Mac)
-
-* Logout and Quit from app
-* Move the app to trash
-
-### Installation Windows
-
-* :warning: This app is **NOT** available
-  on [Windows App Store](https://apps.microsoft.com/store/detail/gchat-for-desktop/9MZXBPL66066)
-* You can install this app by [downloading](https://github.com/zviryatko/google-chat-electron/releases/latest) the
-  installer
-* If you prefer [chocolatey](https://chocolatey.org/) on Windows, you can run:
-
+**Windows**
 ```powershell
 choco install unofficial-google-chat-electron
+# or:
+winget install --id=zviryatko.GoogleChatElectron -e
 ```
 
-* If you prefer [winget-cli](https://github.com/microsoft/winget-cli) on Windows 10+, you can run:
-
-```bash
-winget install --id=zviryatko.GoogleChatElectron  -e
-```
-
-### Installation (Fedora/RHEL/CentOS)
-
-We don't provide installers for Fedora/RHEL/CentOS, but you can build a local RPM package by your own.
-
+**Fedora / RHEL / CentOS** (build a local RPM)
 ```bash
 sudo dnf install rpm-build npm
 curl -fsSL https://get.pnpm.io/install.sh | sh -
 git clone https://github.com/zviryatko/google-chat-electron.git
 cd google-chat-electron
-
 pnpm install
 npm run pack:linux
 npx electron-installer-redhat@^3 --src dist/google-chat-electron-linux-x64 --dest dist/installers/ --arch x86_64
 ```
 
-This will create an RPM package in `./dist/installers` folder (you can specify any location you wish).
-You can install it with `dnf` or `rpm-ostree` depending on your distro.
+</details>
 
-### Supported Platforms
+---
 
-The app should work on all x64 and Apple arm64 platforms, but due to lack of time; we test on most popular only.
+## Supported platforms
 
-| OS/Platform         |    Version    |
+The app should work on all x64 and Apple arm64 platforms; the table below lists what upstream actively tests.
+
+| OS / Platform       |    Version    |
 |:--------------------|:-------------:|
 | Ubuntu GNOME        |    20, 22     |
 | Linux Mint Cinnamon |      21       |
-| MacOS               | 10.15, 11, 12 |
+| macOS               | 10.15, 11, 12 |
 | Windows             |   7, 10, 11   |
 
-### Major features
+> The macOS build is not tested by upstream's maintainer (no Mac available); help testing it is welcome.
 
-* System tray
-    - Unread message indicator
-    - Offline indicator (no internet or not logged-in)
-    - Close the app to tray when you close the app window
-* Desktop notifications
-    - Clicking on notification bring the app to focus and open the specific person chat/room
-* Unread message counter in dock
-* Auto start the app when you log in to your machine (configurable)
-* Auto check for updates on startup and notify user if any (configurable)
-* Auto check for internet on startup and keep retrying to connect every 60 seconds if offline
-* Open external links in your OS default web browser
-* Preserve window position and size
-* Prevent multiple chat app instances from running
-* CTRL+F shortcut to search
+---
 
-### Added in this fork
+## ⚠️ Status & scope
 
-Changes on top of [zviryatko/google-chat-electron](https://github.com/zviryatko/google-chat-electron):
+- **Personal, unofficial fork**, developed actively and run from source. No published packages for this fork yet.
+- It is a **wrapper** — all Google Chat functionality is the web app's; this shell adds no access to your data.
+- macOS / Windows builds are **untested** here (developed and used on Linux / GNOME).
 
-* **Multiple accounts** — `Accounts` menu switches between Google accounts (`/u/0`, `/u/1`, …) in the same window.
-  Only accounts you've actually opened are listed, plus an `Add account…` entry; the last used account is remembered.
-* **In-app downloads** — attachments are saved straight to your `Downloads` folder instead of bouncing to the system
-  browser, with start / progress (taskbar) / complete notifications and automatic `name (1).ext` de-duplication.
-* **Notification deep-links** — clicking a notification opens the specific conversation in the existing window instead
-  of spawning a new one.
-* **Unread flash** — the taskbar/dock entry flashes when a new message arrives while the window is unfocused.
-* **Presence control from the tray** — `Status ▸ Active / Away / Do not disturb` drives Google Chat's own status menu,
-  and the tray reflects the current status (radio check + tooltip).
+---
 
-### Run from source (development)
+## 🙏 Acknowledgements
 
-```bash
-git clone https://github.com/Bae-ChangHyun/google-chat-electron.git
-cd google-chat-electron
-pnpm install   # or: npm install
-npm start      # builds (tsc + esbuild) and launches Electron
-```
+- [@zviryatko](https://github.com/zviryatko/google-chat-electron) — the upstream this fork is based on
+- [@robyf](https://github.com/robyf/google-chat-linux) — initial work
+- [@squalou](https://github.com/squalou/google-chat-linux) — enhancements
+- [@ankurk91](https://github.com/ankurk91/google-chat-electron) — major work
+- All past [contributors](https://github.com/zviryatko/google-chat-electron/graphs/contributors)
 
-### Acknowledgements
-
-* [@zviryatko](https://github.com/zviryatko/google-chat-electron) for the upstream this fork is based on
-* [@robyf](https://github.com/robyf/google-chat-linux) for the initial work
-* [@squalou](https://github.com/squalou/google-chat-linux) for enhancements
-* [@ankurk91](https://github.com/ankurk91/google-chat-linux) for the major work
-* All past [contributors](https://github.com/zviryatko/google-chat-electron/graphs/contributors)
+---
 
 ## Disclaimer
 
-This desktop app is just a wrapper which starts a chromium instance locally and runs the actual web-app in it. All
-rights to the [Google Chat](https://chat.google.com/) product is reserved by
-[Google Inc.](https://en.wikipedia.org/wiki/Google)
-This desktop client has no way to access none of your data.
+This desktop app is just a wrapper that starts a Chromium instance locally and runs the actual web app in it. All rights
+to the [Google Chat](https://chat.google.com/) product are reserved by
+[Google Inc.](https://en.wikipedia.org/wiki/Google) This desktop client has no way to access any of your data.
 
-## License
+## 📄 License
 
-[GNU GPLv3](LICENSE.txt) License
+[GNU GPLv3](LICENSE.txt) — same as upstream. As a GPLv3 work, this fork keeps the original license and attribution, and
+its source is published here.
