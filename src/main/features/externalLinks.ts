@@ -25,31 +25,46 @@ export default (window: BrowserWindow) => {
       return ACTION_ALLOWED;
     }
 
-    const whiteListedHosts = [
-      extractHostname(window.webContents.getURL()),
-      'accounts.google.com',
-      'accounts.youtube.com',
-      'chat.google.com',
-      'mail.google.com'
-    ];
+    const host = extractHostname(url);
+    const currentHost = extractHostname(window.webContents.getURL());
 
-    const isDownloadUrl = url.includes('https://chat.google.com/u/0/api/get_attachment_url');
+    // OAuth / login flows genuinely need a real popup window.
+    const authHosts = ['accounts.google.com', 'accounts.youtube.com'];
+    if (authHosts.includes(host)) {
+      return ACTION_ALLOWED;
+    }
 
-    const isGMailUrl = extractHostname(url) === 'mail.google.com' &&
-      !url.startsWith('https://mail.google.com/chat')
-
-    const isNotWhitelistedHost = !whiteListedHosts.includes(extractHostname(url));
-
-    if (isGMailUrl || isDownloadUrl || isNotWhitelistedHost) {
-
-      setImmediate(() => {
-        shell.openExternal(url);
-      });
-
+    // Attachment downloads: pull them in-app (Downloads folder) instead of
+    // bouncing the URL to the system browser. Account-agnostic (/u/<n>/).
+    const isDownloadUrl = /:\/\/chat\.google\.com\/u\/\d+\/api\/get_attachment_url/.test(url);
+    if (isDownloadUrl) {
+      window.webContents.downloadURL(url);
       return ACTION_DENIED;
     }
 
-    return ACTION_ALLOWED;
+    // In-app Chat links — including notification deep-links opened via the
+    // service worker's clients.openWindow() — navigate the existing window
+    // instead of spawning a new one, so clicking a notification jumps to the
+    // right conversation in the main window.
+    const isChatUrl = host === 'chat.google.com' ||
+      (host === 'mail.google.com' && url.startsWith('https://mail.google.com/chat')) ||
+      host === currentHost;
+
+    if (isChatUrl) {
+      window.webContents.loadURL(url);
+      if (!window.isVisible()) {
+        window.show();
+      }
+      window.focus();
+      return ACTION_DENIED;
+    }
+
+    // Everything else (Gmail proper, Meet, Drive, external sites) → system browser.
+    setImmediate(() => {
+      shell.openExternal(url);
+    });
+
+    return ACTION_DENIED;
   };
 
   window.webContents.setWindowOpenHandler(handleRedirect);

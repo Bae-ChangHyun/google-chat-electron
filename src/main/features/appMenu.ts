@@ -6,6 +6,7 @@ import aboutPanel from './aboutPanel.js';
 import store from './../config.js';
 import {toggleExternalLinksGuard} from "./externalLinks.js";
 import environment from "../environment.js";
+import {addAccountUrl, addKnownAccount, chatUrl, getAccountIndex, getKnownAccounts, logoutUrl, parseAccountIndex, setAccountIndex} from "../account.js";
 
 export default (window: BrowserWindow) => {
 
@@ -28,7 +29,7 @@ export default (window: BrowserWindow) => {
     relaunchApp();
   }
 
-  const menuItems = Menu.buildFromTemplate([
+  const buildMenu = () => Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: 'File',
       submenu: [
@@ -49,7 +50,7 @@ export default (window: BrowserWindow) => {
         {
           label: 'Sign Out',
           click: () => {
-            window.loadURL(environment.logoutUrl)
+            window.loadURL(logoutUrl())
           }
         },
         {
@@ -134,7 +135,28 @@ export default (window: BrowserWindow) => {
           label: 'Navigate to Home',
           accelerator: 'Alt+Home',
           click: () => {
-            window.loadURL(environment.appUrl)
+            window.loadURL(chatUrl())
+          }
+        }
+      ]
+    },
+    {
+      label: 'Accounts',
+      submenu: [
+        ...getKnownAccounts().map((index) => ({
+          label: `Account ${index + 1}`,
+          type: 'radio' as const,
+          checked: getAccountIndex() === index,
+          click: () => {
+            setAccountIndex(index);
+            window.loadURL(chatUrl(index));
+          }
+        })),
+        {type: 'separator' as const},
+        {
+          label: 'Add account…',
+          click: () => {
+            window.loadURL(addAccountUrl());
           }
         }
       ]
@@ -254,7 +276,28 @@ export default (window: BrowserWindow) => {
         },
       ]
     }
-  ]);
+  ]));
 
-  Menu.setApplicationMenu(menuItems)
+  buildMenu();
+
+  // Keep the Accounts menu in sync with whatever account the page is showing:
+  // remember newly-seen /u/N accounts (e.g. after "Add account…") and update
+  // the radio selection, rebuilding the menu only when something changed.
+  const syncAccountFromUrl = (url: string) => {
+    const index = parseAccountIndex(url);
+    if (index === null) {
+      return;
+    }
+    const isNew = addKnownAccount(index);
+    const switched = getAccountIndex() !== index;
+    if (switched) {
+      setAccountIndex(index);
+    }
+    if (isNew || switched) {
+      buildMenu();
+    }
+  };
+
+  window.webContents.on('did-navigate', (_event, url) => syncAccountFromUrl(url));
+  window.webContents.on('did-navigate-in-page', (_event, url) => syncAccountFromUrl(url));
 }

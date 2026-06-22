@@ -3,7 +3,6 @@ import {app, BrowserWindow, nativeTheme} from 'electron';
 import reportExceptions from './features/reportExceptions.js';
 import windowWrapper from './windowWrapper.js';
 import {enforceSingleInstance, restoreFirstInstance} from './features/singleInstance.js';
-import environment from "./environment.js";
 import enableContextMenu from './features/contextMenu.js';
 import runAtLogin from './features/openAtLogin.js';
 import setupTrayIcon from './features/trayIcon.js';
@@ -15,6 +14,9 @@ import setAppMenu from './features/appMenu.js';
 import overrideUserAgent from './features/userAgent.js';
 import setupOfflineHandlers from './features/inOnline.js';
 import handleNotification from './features/handleNotification.js';
+import setupDownloads from './features/downloads.js';
+import flashOnUnread from './features/flashOnUnread.js';
+import {chatUrl} from './account.js';
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -28,8 +30,9 @@ if (enforceSingleInstance()) {
   app.whenReady()
     .then(() => {
       overrideUserAgent();
-      mainWindow = windowWrapper(environment.appUrl);
+      mainWindow = windowWrapper(chatUrl());
       setupOfflineHandlers(mainWindow);
+      setupDownloads(mainWindow);
 
       trayIcon = setupTrayIcon(mainWindow);
       setAppMenu(mainWindow);
@@ -38,6 +41,7 @@ if (enforceSingleInstance()) {
       runAtLogin(mainWindow);
       enableContextMenu();
       badgeIcons(mainWindow, trayIcon);
+      flashOnUnread(mainWindow);
       closeToTray(mainWindow);
       externalLinks(mainWindow);
       handleNotification(mainWindow);

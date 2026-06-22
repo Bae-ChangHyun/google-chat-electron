@@ -11,6 +11,8 @@ type StoreType = {
     startHidden: boolean,
     hideMenuBar: boolean,
     disableSpellChecker: boolean,
+    accountIndex: number,
+    knownAccounts: number[],
   }
 }
 
@@ -68,6 +70,17 @@ const schema: Store.Schema<StoreType> = {
       disableSpellChecker: {
         type: 'boolean',
         default: false
+      },
+      accountIndex: {
+        type: 'number',
+        default: 0
+      },
+      knownAccounts: {
+        type: 'array',
+        items: {
+          type: 'number'
+        },
+        default: [0]
       },
     },
     default: {}

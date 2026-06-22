@@ -8,6 +8,13 @@
 
 An unofficial desktop app for [Google Chat](http://chat.google.com) built with [Electron](https://www.electronjs.org)
 
+> **About this fork**
+> This is a personal, modified fork of [zviryatko/google-chat-electron](https://github.com/zviryatko/google-chat-electron)
+> (which is itself a fork of [ankurk91/google-chat-electron](https://github.com/ankurk91/google-chat-electron)).
+> It adds multi-account switching, in-app downloads, notification deep-links, an unread "flash", and presence (status)
+> control from the tray. See [Added in this fork](#added-in-this-fork) for the full list of changes.
+> Licensed under GNU GPLv3, same as upstream.
+
 # Disclaimer
 
 It is a fork of the original [Google Chat Electron](https://github.com/ankurk91/google-chat-electron) project. The
@@ -129,8 +136,32 @@ The app should work on all x64 and Apple arm64 platforms, but due to lack of tim
 * Prevent multiple chat app instances from running
 * CTRL+F shortcut to search
 
+### Added in this fork
+
+Changes on top of [zviryatko/google-chat-electron](https://github.com/zviryatko/google-chat-electron):
+
+* **Multiple accounts** — `Accounts` menu switches between Google accounts (`/u/0`, `/u/1`, …) in the same window.
+  Only accounts you've actually opened are listed, plus an `Add account…` entry; the last used account is remembered.
+* **In-app downloads** — attachments are saved straight to your `Downloads` folder instead of bouncing to the system
+  browser, with start / progress (taskbar) / complete notifications and automatic `name (1).ext` de-duplication.
+* **Notification deep-links** — clicking a notification opens the specific conversation in the existing window instead
+  of spawning a new one.
+* **Unread flash** — the taskbar/dock entry flashes when a new message arrives while the window is unfocused.
+* **Presence control from the tray** — `Status ▸ Active / Away / Do not disturb` drives Google Chat's own status menu,
+  and the tray reflects the current status (radio check + tooltip).
+
+### Run from source (development)
+
+```bash
+git clone https://github.com/Bae-ChangHyun/google-chat-electron.git
+cd google-chat-electron
+pnpm install   # or: npm install
+npm start      # builds (tsc + esbuild) and launches Electron
+```
+
 ### Acknowledgements
 
+* [@zviryatko](https://github.com/zviryatko/google-chat-electron) for the upstream this fork is based on
 * [@robyf](https://github.com/robyf/google-chat-linux) for the initial work
 * [@squalou](https://github.com/squalou/google-chat-linux) for enhancements
 * [@ankurk91](https://github.com/ankurk91/google-chat-linux) for the major work
