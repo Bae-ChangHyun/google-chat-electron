@@ -1,4 +1,4 @@
-import {BrowserWindow, app, dialog, shell} from 'electron';
+import {BrowserWindow, app, dialog, ipcMain, shell} from 'electron';
 import {spawn} from 'child_process';
 import https from 'https';
 import fs from 'fs';
@@ -8,6 +8,89 @@ import log from 'electron-log';
 import store from '../config.js';
 
 const REPO = 'Bae-ChangHyun/google-chat-electron';
+
+// Self-contained admin password prompt — shown by the app itself so it never
+// depends on a polkit agent being reachable (which breaks for relaunched apps).
+const askPassword = (parent: BrowserWindow, errorText = ''): Promise<string | null> =>
+  new Promise((resolve) => {
+    const win = new BrowserWindow({
+      parent,
+      modal: true,
+      width: 400,
+      height: 210,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      title: 'Authentication required',
+      webPreferences: {nodeIntegration: true, contextIsolation: false},
+    });
+    win.setMenuBarVisibility(false);
+
+    const html = `<!doctype html><html><body style="margin:0;font-family:sans-serif;background:#2b2b2b;color:#eee;padding:20px">
+      <div style="font-size:14px;margin-bottom:6px">Enter your password to install the update</div>
+      <div style="font-size:12px;opacity:.6;margin-bottom:14px">(sudo)</div>
+      <input id="pw" type="password" autofocus style="width:100%;box-sizing:border-box;padding:8px;font-size:14px;border-radius:6px;border:1px solid #555;background:#1e1e1e;color:#fff">
+      <div id="err" style="color:#f28b82;font-size:12px;height:16px;margin-top:6px">${errorText}</div>
+      <div style="text-align:right;margin-top:10px">
+        <button id="cancel" style="padding:7px 14px;margin-right:6px">Cancel</button>
+        <button id="ok" style="padding:7px 14px;background:#8ab4f8;border:none;border-radius:6px">OK</button>
+      </div>
+      <script>
+        const {ipcRenderer}=require('electron');
+        const pw=document.getElementById('pw');
+        const ok=()=>ipcRenderer.send('askpw:done',pw.value);
+        document.getElementById('ok').onclick=ok;
+        document.getElementById('cancel').onclick=()=>ipcRenderer.send('askpw:done',null);
+        pw.addEventListener('keydown',e=>{if(e.key==='Enter')ok();if(e.key==='Escape')ipcRenderer.send('askpw:done',null)});
+        ipcRenderer.on('askpw:error',(_e,m)=>{document.getElementById('err').textContent=m;pw.value='';pw.focus()});
+      </script></body></html>`;
+    const htmlPath = path.join(os.tmpdir(), 'gce-askpass.html');
+    fs.writeFileSync(htmlPath, html);
+    win.loadFile(htmlPath);
+
+    let done = false;
+    const finish = (value: string | null) => {
+      if (done) {
+        return;
+      }
+      done = true;
+      ipcMain.removeListener('askpw:done', onDone);
+      if (!win.isDestroyed()) {
+        win.close();
+      }
+      resolve(value);
+    };
+    const onDone = (event: Electron.IpcMainEvent, value: string | null) => {
+      if (event.sender === win.webContents) {
+        finish(value);
+      }
+    };
+    ipcMain.on('askpw:done', onDone);
+    win.on('closed', () => finish(null));
+  });
+
+// Install the .deb with sudo, feeding the password via stdin. Resolves true on
+// success, false on wrong password, throws on other failures.
+const sudoInstall = (deb: string, password: string): Promise<boolean> =>
+  new Promise((resolve, reject) => {
+    const child = spawn('sudo', ['-S', '-k', '-p', '', 'apt-get', 'install', '-y', deb]);
+    let stderr = '';
+    child.stderr.on('data', (d) => {
+      stderr += d.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(true);
+      } else if (/incorrect password|try again|sorry/i.test(stderr)) {
+        resolve(false); // wrong password
+      } else {
+        reject(new Error(stderr.trim() || `apt-get exited with code ${code}`));
+      }
+    });
+    child.stdin.write(password + '\n');
+    child.stdin.end();
+  });
 
 // Progress feedback for the update, reusing the in-app toast overlay.
 const toast = (
@@ -146,61 +229,45 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
       });
   };
 
-  // pkexec shows a graphical password prompt (polkit). If no agent answers in
-  // time, don't let the toast hang on "Installing".
-  toast(window, {text: 'Installing… (enter password)', state: 'install'});
-  const child = spawn('pkexec', ['apt-get', 'install', '-y', dest], {stdio: 'ignore'});
-  let settled = false;
-  const watchdog = setTimeout(() => {
-    if (!settled) {
-      settled = true;
-      try {
-        child.kill();
-      } catch {
-        /* ignore */
-      }
-      manualFallback('no response within 90s (polkit prompt likely did not appear)');
-    }
-  }, 90000);
-
-  child.on('error', () => {
-    if (settled) {
-      return;
-    }
-    settled = true;
-    clearTimeout(watchdog);
-    manualFallback('failed to spawn pkexec');
-  });
-
-  child.on('exit', (code) => {
-    if (settled) {
-      return;
-    }
-    settled = true;
-    clearTimeout(watchdog);
-    if (code === 0) {
-      toast(window, {text: `Updated to ${release.version}`, state: 'done'});
-      dialog
-        .showMessageBox(window, {
-          type: 'info',
-          message: `Updated to ${release.version}`,
-          detail: 'Restart now to use the new version.',
-          buttons: ['Restart', 'Later'],
-          defaultId: 0,
-        })
-        .then(({response}) => {
-          if (response === 0) {
-            app.relaunch();
-            app.exit();
-          }
-        });
-    } else if (code === 126) {
-      // User explicitly dismissed the auth prompt — just clear the toast.
+  // Show our own password prompt and install with sudo (up to 3 attempts), so
+  // it never depends on a polkit agent being reachable.
+  let errorText = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const password = await askPassword(window, errorText);
+    if (password === null) {
       toast(window, {text: 'Update cancelled', state: 'error'});
-    } else {
-      manualFallback(`pkexec exited with code ${code}`);
+      return;
     }
-  });
+
+    toast(window, {text: `Installing ${release.version}…`, state: 'install'});
+    let ok: boolean;
+    try {
+      ok = await sudoInstall(dest, password);
+    } catch (err) {
+      manualFallback(`sudo install failed: ${(err as Error).message}`);
+      return;
+    }
+
+    if (ok) {
+      toast(window, {text: `Updated to ${release.version}`, state: 'done'});
+      const {response} = await dialog.showMessageBox(window, {
+        type: 'info',
+        message: `Updated to ${release.version}`,
+        detail: 'Restart now to use the new version.',
+        buttons: ['Restart', 'Later'],
+        defaultId: 0,
+      });
+      if (response === 0) {
+        app.relaunch();
+        app.exit();
+      }
+      return;
+    }
+
+    errorText = 'Incorrect password, try again';
+  }
+
+  manualFallback('incorrect password (3 attempts)');
 };
 
 export const checkForUpdates = async (window: BrowserWindow, silent: boolean) => {
