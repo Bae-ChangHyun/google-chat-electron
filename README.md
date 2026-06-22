@@ -14,10 +14,8 @@ This fork adds multi-account switching, in-app downloads, notification deep-link
 
 ---
 
-> **⚠️ Note**
-> This is a **personal, unofficial fork**. It wraps the Google Chat web app in Electron — it is not built or endorsed by Google.
-> The features added in this fork (see below) currently ship **from source only**; the prebuilt packages linked under
-> *Getting started* are upstream releases and do **not** include them.
+> **Note**
+> This is a personal, unofficial fork. It wraps the Google Chat web app in Electron — it is not built or endorsed by Google.
 
 ---
 
@@ -31,7 +29,7 @@ This repository is a personal fork of [**zviryatko/google-chat-electron**](https
 (itself a fork of [ankurk91/google-chat-electron](https://github.com/ankurk91/google-chat-electron)), kept GPLv3 and
 extended with the account, download, and presence features described below.
 
-### 💡 Why this fork
+### Why this fork
 
 - **Problem**: the upstream wrapper is single-account, bounces file downloads out to the system browser, and offers no
   way to set your Chat status without diving into the web UI.
@@ -40,21 +38,21 @@ extended with the account, download, and presence features described below.
 
 ---
 
-## ✨ Features
+## Features
 
 Added in this fork:
 
 | Feature | What it does |
 | :-- | :-- |
-| 👥 **Multiple accounts** | Switch Google accounts (`/u/0`, `/u/1`, …) in the same window. Only accounts you've opened are listed, plus `Add account…`; the last used one is remembered. |
-| ⬇️ **In-app download toasts** | Attachments download in-app to your Downloads folder with a live toast (instant feedback, progress, click **열기 / Open**). |
-| 📁 **Download folder** | Choose where downloads are saved (Preferences ▸ Set Download Folder). |
-| 🔔 **Notification deep-links** | Clicking a notification opens that conversation in the existing window. |
-| ✨ **Unread flash** | Taskbar / dock entry flashes on a new message while unfocused. |
-| 🟢 **Presence control** | Tray ▸ Status sets Active / Away / Do not disturb and reflects the current status. |
-| 🔍 **Zoom memory** | `Ctrl ±` / wheel zoom is remembered across restarts. |
-| 🧭 **Toast position** | Pick which corner download toasts appear in. |
-| ⬆️ **In-app updates** | Checks GitHub releases and updates with one click (Help ▸ Check for Updates). |
+| **Multiple accounts** | Switch Google accounts (`/u/0`, `/u/1`, …) in the same window. Only accounts you've opened are listed, plus `Add account…`; the last used one is remembered. |
+| **In-app download toasts** | Attachments download in-app to your Downloads folder with a live toast (instant feedback, progress, click **열기 / Open**). |
+| **Download folder** | Choose where downloads are saved (Preferences ▸ Set Download Folder). |
+| **Notification deep-links** | Clicking a notification opens that conversation in the existing window. |
+| **Unread flash** | Taskbar / dock entry flashes on a new message while unfocused. |
+| **Presence control** | Tray ▸ Status sets Active / Away / Do not disturb and reflects the current status. |
+| **Zoom memory** | `Ctrl ±` / wheel zoom is remembered across restarts. |
+| **Toast position** | Pick which corner download toasts appear in. |
+| **In-app updates** | Checks GitHub releases and updates with one click (Help ▸ Check for Updates). |
 
 Inherited from upstream: system tray (unread/offline indicator, close-to-tray), desktop notifications, dock unread
 counter, auto-start at login, offline auto-retry, external links in your default browser, window-state persistence,
@@ -74,7 +72,7 @@ menu), and the Electron main process wires those signals to OS features (tray, b
 
 ---
 
-## 🚀 Getting started
+## Getting started
 
 ### Install / update (Linux, `.deb`)
 
@@ -167,15 +165,15 @@ The app should work on all x64 and Apple arm64 platforms; the table below lists 
 
 ---
 
-## ⚠️ Status & scope
+## Status & scope
 
-- **Personal, unofficial fork**, developed actively and run from source. No published packages for this fork yet.
-- It is a **wrapper** — all Google Chat functionality is the web app's; this shell adds no access to your data.
-- macOS / Windows builds are **untested** here (developed and used on Linux / GNOME).
+- Personal, unofficial fork, actively developed. Distributed as a `.deb` via GitHub releases (Linux); also runnable from source.
+- It is a wrapper — all Google Chat functionality is the web app's; this shell adds no access to your data.
+- macOS / Windows builds are untested here (developed and used on Linux / GNOME).
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [@zviryatko](https://github.com/zviryatko/google-chat-electron) — the upstream this fork is based on
 - [@robyf](https://github.com/robyf/google-chat-linux) — initial work
@@ -191,7 +189,7 @@ This desktop app is just a wrapper that starts a Chromium instance locally and r
 to the [Google Chat](https://chat.google.com/) product are reserved by
 [Google Inc.](https://en.wikipedia.org/wiki/Google) This desktop client has no way to access any of your data.
 
-## 📄 License
+## License
 
 [GNU GPLv3](LICENSE.txt) — same as upstream. As a GPLv3 work, this fork keeps the original license and attribution, and
 its source is published here.
