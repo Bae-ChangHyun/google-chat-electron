@@ -31,6 +31,11 @@ trap 'rm -rf "${tmp}"' EXIT
 echo "Downloading ${deb_name} …"
 curl -fL --progress-bar "${asset_url}" -o "${tmp}/${PKG}.deb"
 
+# Let apt's sandbox user (_apt) read the file, so the install doesn't print the
+# "Download is performed unsandboxed … Permission denied" note. mktemp -d is 700.
+chmod 755 "${tmp}"
+chmod 644 "${tmp}/${PKG}.deb"
+
 echo "Installing (sudo may prompt for your password) …"
 sudo apt install -y --allow-downgrades "${tmp}/${PKG}.deb"
 
