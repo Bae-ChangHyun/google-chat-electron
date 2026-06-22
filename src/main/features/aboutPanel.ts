@@ -1,7 +1,6 @@
 import {app, dialog, nativeImage, clipboard, BrowserWindow} from 'electron';
 import path from 'path';
 import os from 'os';
-import {checkForUpdates} from './updates.js';
 
 // The default Electron AboutWindow does not load app icon from asar
 // So let's create a custom dialog instead
@@ -14,17 +13,15 @@ export default (window: BrowserWindow) => {
   return dialog.showMessageBox(window, {
     type: 'info',
     title: 'About',
-    message: `Google Chat — v${app.getVersion()}`,
+    message: 'Google Chat',
     detail: "Unofficial desktop app for Google Chat.\n\n" + detail.join('\n'),
-    buttons: ['Check for Updates', 'Copy', 'Ok'],
-    cancelId: 2,
-    defaultId: 2,
+    buttons: ['Copy', 'Ok'],
+    cancelId: 1,
+    defaultId: 1,
     icon: nativeImage.createFromPath(path.join(app.getAppPath(), 'resources/icons/normal/64.png'))
   })
     .then(({response}) => {
       if (response === 0) {
-        checkForUpdates(window, false)
-      } else if (response === 1) {
         clipboard.writeText(getDetails().join('\n'))
       }
     })

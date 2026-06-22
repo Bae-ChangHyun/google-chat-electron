@@ -270,40 +270,55 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
   manualFallback('incorrect password (3 attempts)');
 };
 
+// Guards against overlapping update flows (e.g. the startup check firing while a
+// download is already running, which would stack a second "Update available").
+let busy = false;
+
 export const checkForUpdates = async (window: BrowserWindow, silent: boolean) => {
-  let release: Release | null = null;
+  if (busy) {
+    if (!silent) {
+      dialog.showMessageBox(window, {type: 'info', message: 'An update is already in progress'});
+    }
+    return;
+  }
+  busy = true;
   try {
-    release = await fetchLatest();
-  } catch (err) {
-    log.error(`update check failed: ${(err as Error).message}`);
-  }
-
-  if (!release) {
-    if (!silent) {
-      dialog.showMessageBox(window, {type: 'warning', message: 'Could not check for updates', detail: 'Please try again later.'});
+    let release: Release | null = null;
+    try {
+      release = await fetchLatest();
+    } catch (err) {
+      log.error(`update check failed: ${(err as Error).message}`);
     }
-    return;
-  }
 
-  if (!isNewer(release.version, app.getVersion())) {
-    if (!silent) {
-      dialog.showMessageBox(window, {type: 'info', message: "You're up to date", detail: `Current version: ${app.getVersion()}`});
+    if (!release) {
+      if (!silent) {
+        dialog.showMessageBox(window, {type: 'warning', message: 'Could not check for updates', detail: 'Please try again later.'});
+      }
+      return;
     }
-    return;
-  }
 
-  const {response} = await dialog.showMessageBox(window, {
-    type: 'info',
-    message: `Update available: ${release.version}`,
-    detail: `You have ${app.getVersion()}. Update now?`,
-    buttons: ['Update now', 'Release notes', 'Later'],
-    defaultId: 0,
-    cancelId: 2,
-  });
-  if (response === 0) {
-    installDeb(window, release);
-  } else if (response === 1) {
-    shell.openExternal(release.notesUrl);
+    if (!isNewer(release.version, app.getVersion())) {
+      if (!silent) {
+        dialog.showMessageBox(window, {type: 'info', message: "You're up to date", detail: `Current version: ${app.getVersion()}`});
+      }
+      return;
+    }
+
+    const {response} = await dialog.showMessageBox(window, {
+      type: 'info',
+      message: `Update available: ${release.version}`,
+      detail: `You have ${app.getVersion()}. Update now?`,
+      buttons: ['Update now', 'Release notes', 'Later'],
+      defaultId: 0,
+      cancelId: 2,
+    });
+    if (response === 0) {
+      await installDeb(window, release);
+    } else if (response === 1) {
+      shell.openExternal(release.notesUrl);
+    }
+  } finally {
+    busy = false;
   }
 };
 
