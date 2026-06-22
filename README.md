@@ -7,7 +7,7 @@ This fork adds multi-account switching, in-app downloads, notification deep-link
 
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE.txt)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-orange?style=flat-square)](#supported-platforms)
-[![Built with](https://img.shields.io/badge/Built%20with-Electron%20%2B%20TypeScript-blueviolet?style=flat-square)](#tech-stack)
+[![Built with](https://img.shields.io/badge/Built%20with-Electron%20%2B%20TypeScript-blueviolet?style=flat-square)](https://www.electronjs.org)
 [![Fork of](https://img.shields.io/badge/Fork%20of-zviryatko%2Fgoogle--chat--electron-lightgrey?style=flat-square)](https://github.com/zviryatko/google-chat-electron)
 
 </div>
@@ -42,16 +42,6 @@ extended with the account, download, and presence features described below.
 
 ## ✨ Features
 
-### Core (from upstream)
-
-- **System tray** — unread indicator, offline indicator, and close-to-tray on window close.
-- **Desktop notifications** — clicking a notification focuses the app.
-- **Unread counter in the dock**, auto-start at login (configurable), and offline auto-retry every 60s.
-- **External links** open in your OS default browser; window position/size is preserved.
-- **Single-instance** enforcement and a `Ctrl+F` search shortcut.
-
-### Added in this fork
-
 - **Multiple accounts** — the `Accounts` menu switches between Google accounts (`/u/0`, `/u/1`, …) in the same window.
   Only accounts you've actually opened are listed, with an `Add account…` entry, and the last used account is remembered.
 - **In-app downloads** — attachments save straight to your `Downloads` folder instead of bouncing to the system browser,
@@ -61,6 +51,10 @@ extended with the account, download, and presence features described below.
 - **Unread flash** — the taskbar / dock entry flashes when a new message arrives while the window is unfocused.
 - **Presence control from the tray** — `Status ▸ Active / Away / Do not disturb` drives Google Chat's own status menu,
   and the tray reflects the current status (radio check + tooltip).
+- **System tray** — unread indicator, offline indicator, and close-to-tray on window close.
+- **Desktop notifications**, unread dock counter, auto-start at login (configurable), and offline auto-retry every 60s.
+- **External links** open in your default browser, window position/size is preserved, single-instance is enforced,
+  and `Ctrl+F` opens search.
 
 ---
 
@@ -73,15 +67,6 @@ extended with the account, download, and presence features described below.
 
 The web app runs untouched inside Chromium. A preload script reads/acts on the page (unread count, favicon, status
 menu), and the Electron main process wires those signals to OS features (tray, badges, downloads, window state).
-
----
-
-## 🛠️ Tech stack
-
-- **Runtime**: Electron 36
-- **Language**: TypeScript (compiled with `tsc`, bundled with esbuild)
-- **Key libraries**: `electron-store` (settings), `auto-launch` (start at login), `electron-log`, `throttle-debounce`
-- **Packaging**: `@electron/packager`, `electron-installer-debian`
 
 ---
 
