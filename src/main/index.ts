@@ -17,6 +17,7 @@ import handleNotification from './features/handleNotification.js';
 import setupDownloads from './features/downloads.js';
 import flashOnUnread from './features/flashOnUnread.js';
 import persistZoom from './features/zoom.js';
+import setupUpdates from './features/updates.js';
 import {chatUrl} from './account.js';
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -47,6 +48,7 @@ if (enforceSingleInstance()) {
       closeToTray(mainWindow);
       externalLinks(mainWindow);
       handleNotification(mainWindow);
+      setupUpdates(mainWindow);
       initSystemThemeFollow(mainWindow);
     })
 }

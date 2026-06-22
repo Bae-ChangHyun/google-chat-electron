@@ -42,19 +42,23 @@ extended with the account, download, and presence features described below.
 
 ## ✨ Features
 
-- **Multiple accounts** — the `Accounts` menu switches between Google accounts (`/u/0`, `/u/1`, …) in the same window.
-  Only accounts you've actually opened are listed, with an `Add account…` entry, and the last used account is remembered.
-- **In-app downloads** — attachments save straight to your `Downloads` folder instead of bouncing to the system browser,
-  with start / taskbar-progress / complete notifications and automatic `name (1).ext` de-duplication.
-- **Notification deep-links** — clicking a notification opens that specific conversation in the existing window rather
-  than spawning a new one.
-- **Unread flash** — the taskbar / dock entry flashes when a new message arrives while the window is unfocused.
-- **Presence control from the tray** — `Status ▸ Active / Away / Do not disturb` drives Google Chat's own status menu,
-  and the tray reflects the current status (radio check + tooltip).
-- **System tray** — unread indicator, offline indicator, and close-to-tray on window close.
-- **Desktop notifications**, unread dock counter, auto-start at login (configurable), and offline auto-retry every 60s.
-- **External links** open in your default browser, window position/size is preserved, single-instance is enforced,
-  and `Ctrl+F` opens search.
+Added in this fork:
+
+| Feature | What it does |
+| :-- | :-- |
+| 👥 **Multiple accounts** | Switch Google accounts (`/u/0`, `/u/1`, …) in the same window. Only accounts you've opened are listed, plus `Add account…`; the last used one is remembered. |
+| ⬇️ **In-app download toasts** | Attachments download in-app to your Downloads folder with a live toast (instant feedback, progress, click **열기 / Open**). |
+| 📁 **Download folder** | Choose where downloads are saved (Preferences ▸ Set Download Folder). |
+| 🔔 **Notification deep-links** | Clicking a notification opens that conversation in the existing window. |
+| ✨ **Unread flash** | Taskbar / dock entry flashes on a new message while unfocused. |
+| 🟢 **Presence control** | Tray ▸ Status sets Active / Away / Do not disturb and reflects the current status. |
+| 🔍 **Zoom memory** | `Ctrl ±` / wheel zoom is remembered across restarts. |
+| 🧭 **Toast position** | Pick which corner download toasts appear in. |
+| ⬆️ **In-app updates** | Checks GitHub releases and updates with one click (Help ▸ Check for Updates). |
+
+Inherited from upstream: system tray (unread/offline indicator, close-to-tray), desktop notifications, dock unread
+counter, auto-start at login, offline auto-retry, external links in your default browser, window-state persistence,
+single-instance, and `Ctrl+F` search.
 
 ---
 
@@ -81,7 +85,18 @@ curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/google-chat-electron/
 ```
 
 The script downloads the latest release's `.deb` and installs it with `apt` (it will prompt for `sudo`).
-Re-run the same command any time to update.
+Re-run the same command any time to update — or use **Help ▸ Check for Updates** inside the app.
+
+<details>
+<summary><strong>Already installed the old Snap? Remove it first</strong></summary>
+
+The unofficial Snap (`google-chat-desktop`) is a different package from this `.deb`. Remove it (and its data) so you don't run two copies:
+
+```bash
+sudo snap remove --purge google-chat-desktop
+```
+
+</details>
 
 ### Run from source (this fork)
 

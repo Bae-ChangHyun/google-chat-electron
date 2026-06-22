@@ -8,6 +8,7 @@ import {toggleExternalLinksGuard} from "./externalLinks.js";
 import environment from "../environment.js";
 import {addAccountUrl, addKnownAccount, chatUrl, getAccountIndex, getKnownAccounts, logoutUrl, parseAccountIndex, setAccountIndex} from "../account.js";
 import {zoomIn, zoomOut, zoomReset} from "./zoom.js";
+import {checkForUpdates} from "./updates.js";
 
 export default (window: BrowserWindow) => {
 
@@ -308,6 +309,12 @@ export default (window: BrowserWindow) => {
               }
             },
           ]
+        },
+        {
+          label: 'Check for Updates…',
+          click: () => {
+            checkForUpdates(window, false)
+          }
         },
         {
           label: 'About',
