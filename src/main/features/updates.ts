@@ -5,8 +5,22 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import log from 'electron-log';
+import store from '../config.js';
 
 const REPO = 'Bae-ChangHyun/google-chat-electron';
+
+// Progress feedback for the update, reusing the in-app toast overlay.
+const toast = (
+  window: BrowserWindow,
+  payload: {text: string; percent?: number; state?: 'download' | 'install' | 'done' | 'error'},
+) => {
+  if (!window.isDestroyed()) {
+    window.webContents.send('update:toast', {
+      position: String(store.get('app.toastPosition') ?? 'top-right'),
+      ...payload,
+    });
+  }
+};
 
 type Release = {tag: string; version: string; notesUrl: string; debUrl: string | null};
 
@@ -38,19 +52,41 @@ const httpsGet = (url: string): Promise<{status: number; headers: any; body: Buf
   });
 
 // Follow redirects (GitHub asset URLs 302 to objects.githubusercontent.com).
-const download = async (url: string, dest: string, hops = 0): Promise<void> => {
-  if (hops > 5) {
-    throw new Error('too many redirects');
-  }
-  const res = await httpsGet(url);
-  if (res.status >= 300 && res.status < 400 && res.headers.location) {
-    return download(res.headers.location, dest, hops + 1);
-  }
-  if (res.status !== 200) {
-    throw new Error(`download failed: HTTP ${res.status}`);
-  }
-  fs.writeFileSync(dest, res.body);
-};
+const download = (url: string, dest: string, onProgress: (percent: number) => void, hops = 0): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (hops > 5) {
+      reject(new Error('too many redirects'));
+      return;
+    }
+    https
+      .get(url, {headers: {'User-Agent': 'google-chat-electron-updater'}}, (res) => {
+        const status = res.statusCode || 0;
+        if (status >= 300 && status < 400 && res.headers.location) {
+          res.resume();
+          download(res.headers.location, dest, onProgress, hops + 1).then(resolve, reject);
+          return;
+        }
+        if (status !== 200) {
+          res.resume();
+          reject(new Error(`download failed: HTTP ${status}`));
+          return;
+        }
+        const total = Number(res.headers['content-length'] || 0);
+        let received = 0;
+        const file = fs.createWriteStream(dest);
+        res.on('data', (chunk) => {
+          received += chunk.length;
+          if (total) {
+            onProgress(Math.round((received / total) * 100));
+          }
+        });
+        res.pipe(file);
+        file.on('finish', () => file.close(() => resolve()));
+        file.on('error', reject);
+        res.on('error', reject);
+      })
+      .on('error', reject);
+  });
 
 const fetchLatest = async (): Promise<Release | null> => {
   const res = await httpsGet(`https://api.github.com/repos/${REPO}/releases/latest`);
@@ -75,17 +111,21 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
   }
   const dest = path.join(os.tmpdir(), `google-chat-electron-${release.version}.deb`);
   try {
-    await download(release.debUrl, dest);
+    toast(window, {text: `Downloading ${release.version}…`, percent: 0, state: 'download'});
+    await download(release.debUrl, dest, (percent) => toast(window, {text: `Downloading ${release.version}…`, percent, state: 'download'}));
   } catch (err) {
     log.error(`update download failed: ${(err as Error).message}`);
+    toast(window, {text: 'Update download failed', state: 'error'});
     dialog.showMessageBox(window, {type: 'error', message: 'Download failed', detail: String(err)});
     shell.openExternal(release.notesUrl);
     return;
   }
 
   // pkexec shows a graphical password prompt (polkit).
+  toast(window, {text: 'Installing… (enter password)', state: 'install'});
   const child = spawn('pkexec', ['apt-get', 'install', '-y', dest], {stdio: 'ignore'});
   child.on('error', () => {
+    toast(window, {text: 'Could not start installer', state: 'error'});
     dialog.showMessageBox(window, {
       type: 'info',
       message: 'Could not start the installer',
@@ -94,6 +134,7 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
   });
   child.on('exit', (code) => {
     if (code === 0) {
+      toast(window, {text: `Updated to ${release.version}`, state: 'done'});
       dialog
         .showMessageBox(window, {
           type: 'info',
@@ -110,6 +151,7 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
         });
     } else if (code !== 126 && code !== 127) {
       // 126/127 = user dismissed the polkit prompt; stay quiet then.
+      toast(window, {text: 'Update failed', state: 'error'});
       dialog.showMessageBox(window, {type: 'error', message: 'Update failed', detail: `Installer exited with code ${code}.`});
     }
   });

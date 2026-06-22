@@ -189,6 +189,38 @@ ipcRenderer.on('download:done', (_event, {filename, savePath}) => {
   });
 });
 
+// App self-update progress (download → install → done), reuses one toast.
+ipcRenderer.on('update:toast', (_event, {position, text, percent, state}) => {
+  guard(() => {
+    if (position) {
+      currentPosition = position;
+    }
+    const t = getToast('__update__');
+    t.name.textContent = text;
+    t.el.style.cursor = 'default';
+    t.el.onclick = null;
+    if (state === 'done') {
+      t.ic.textContent = '✅';
+      t.pct.textContent = '';
+      t.bar.style.width = '100%';
+      dismiss('__update__', 5000);
+    } else if (state === 'error') {
+      t.ic.textContent = '⚠️';
+      t.pct.textContent = '';
+      t.bar.style.background = '#f28b82';
+      dismiss('__update__', 6000);
+    } else if (state === 'install') {
+      t.ic.textContent = '⚙️';
+      t.pct.textContent = '…';
+      t.bar.style.width = '100%';
+    } else {
+      t.ic.textContent = '⬆️';
+      t.pct.textContent = percent >= 0 ? `${percent}%` : '…';
+      t.bar.style.width = `${percent >= 0 ? percent : 15}%`;
+    }
+  });
+});
+
 ipcRenderer.on('download:failed', (_event, {filename}) => {
   guard(() => {
     const t = getToast(filename);
