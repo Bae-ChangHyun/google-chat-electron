@@ -119,6 +119,13 @@ ipcRenderer.on('download:pending', (_event, {position}) => {
     t.name.textContent = '다운로드 준비 중…';
     t.pct.textContent = '…';
     t.bar.style.width = '15%';
+    // Safety: if no real download starts (request never produced a download),
+    // clean up the pending toast instead of letting it linger forever.
+    setTimeout(() => {
+      if (toasts.has(PENDING)) {
+        dismiss(PENDING, 0);
+      }
+    }, 12000);
   });
 });
 

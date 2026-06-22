@@ -42,13 +42,13 @@ const isNewer = (latest: string, current: string): boolean => {
 
 const httpsGet = (url: string): Promise<{status: number; headers: any; body: Buffer}> =>
   new Promise((resolve, reject) => {
-    https
-      .get(url, {headers: {'User-Agent': 'google-chat-electron-updater'}}, (res) => {
-        const chunks: Buffer[] = [];
-        res.on('data', (c) => chunks.push(c));
-        res.on('end', () => resolve({status: res.statusCode || 0, headers: res.headers, body: Buffer.concat(chunks)}));
-      })
-      .on('error', reject);
+    const req = https.get(url, {headers: {'User-Agent': 'google-chat-electron-updater'}}, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({status: res.statusCode || 0, headers: res.headers, body: Buffer.concat(chunks)}));
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => req.destroy(new Error('request timed out')));
   });
 
 // Follow redirects (GitHub asset URLs 302 to objects.githubusercontent.com).
@@ -58,34 +58,34 @@ const download = (url: string, dest: string, onProgress: (percent: number) => vo
       reject(new Error('too many redirects'));
       return;
     }
-    https
-      .get(url, {headers: {'User-Agent': 'google-chat-electron-updater'}}, (res) => {
-        const status = res.statusCode || 0;
-        if (status >= 300 && status < 400 && res.headers.location) {
-          res.resume();
-          download(res.headers.location, dest, onProgress, hops + 1).then(resolve, reject);
-          return;
+    const req = https.get(url, {headers: {'User-Agent': 'google-chat-electron-updater'}}, (res) => {
+      const status = res.statusCode || 0;
+      if (status >= 300 && status < 400 && res.headers.location) {
+        res.resume();
+        download(res.headers.location, dest, onProgress, hops + 1).then(resolve, reject);
+        return;
+      }
+      if (status !== 200) {
+        res.resume();
+        reject(new Error(`download failed: HTTP ${status}`));
+        return;
+      }
+      const total = Number(res.headers['content-length'] || 0);
+      let received = 0;
+      const file = fs.createWriteStream(dest);
+      res.on('data', (chunk) => {
+        received += chunk.length;
+        if (total) {
+          onProgress(Math.round((received / total) * 100));
         }
-        if (status !== 200) {
-          res.resume();
-          reject(new Error(`download failed: HTTP ${status}`));
-          return;
-        }
-        const total = Number(res.headers['content-length'] || 0);
-        let received = 0;
-        const file = fs.createWriteStream(dest);
-        res.on('data', (chunk) => {
-          received += chunk.length;
-          if (total) {
-            onProgress(Math.round((received / total) * 100));
-          }
-        });
-        res.pipe(file);
-        file.on('finish', () => file.close(() => resolve()));
-        file.on('error', reject);
-        res.on('error', reject);
-      })
-      .on('error', reject);
+      });
+      res.pipe(file);
+      file.on('finish', () => file.close(() => resolve()));
+      file.on('error', reject);
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(60000, () => req.destroy(new Error('download timed out')));
   });
 
 const fetchLatest = async (): Promise<Release | null> => {

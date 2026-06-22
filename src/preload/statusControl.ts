@@ -75,6 +75,15 @@ const emitPresence = () => {
   }
 };
 
+let pollTimer: ReturnType<typeof setInterval> | undefined;
 window.addEventListener('DOMContentLoaded', () => {
-  setInterval(emitPresence, 2000);
+  if (pollTimer) {
+    clearInterval(pollTimer);
+  }
+  pollTimer = setInterval(() => {
+    if (document.hidden) {
+      return; // skip DOM polling while the window isn't visible
+    }
+    emitPresence();
+  }, 2000);
 });
