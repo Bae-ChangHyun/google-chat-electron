@@ -32,6 +32,6 @@ echo "Downloading ${deb_name} …"
 curl -fL --progress-bar "${asset_url}" -o "${tmp}/${PKG}.deb"
 
 echo "Installing (sudo may prompt for your password) …"
-sudo apt install -y "${tmp}/${PKG}.deb"
+sudo apt install -y --allow-downgrades "${tmp}/${PKG}.deb"
 
 echo "Done — ${PKG} $(dpkg-query -W -f='${Version}' "${PKG}" 2>/dev/null) installed."
