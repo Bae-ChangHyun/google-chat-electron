@@ -1,5 +1,6 @@
 import {BrowserWindow, dialog, HandlerDetails, shell} from 'electron';
 import log from "electron-log";
+import store from '../config.js';
 
 let guardAgainstExternalLinks = true;
 const RE_GUARD_IN_MINUTES = 5;
@@ -38,8 +39,12 @@ export default (window: BrowserWindow) => {
     // bouncing the URL to the system browser. Host-agnostic — Chat runs under
     // both chat.google.com and mail.google.com/chat (multi-account /u/<n>/).
     const isDownloadUrl = /\/api\/get_attachment_url/.test(url) || /[?&]attachment_id=/.test(url);
-    log.info(`[externalLinks] open url=${url} download=${isDownloadUrl}`);
     if (isDownloadUrl) {
+      // Show a toast the instant the download is requested, before the server
+      // responds and will-download fires.
+      window.webContents.send('download:pending', {
+        position: String(store.get('app.toastPosition') ?? 'top-right'),
+      });
       window.webContents.downloadURL(url);
       return ACTION_DENIED;
     }

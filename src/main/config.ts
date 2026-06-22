@@ -13,6 +13,9 @@ type StoreType = {
     disableSpellChecker: boolean,
     accountIndex: number,
     knownAccounts: number[],
+    downloadDir: string,
+    zoomLevel: number,
+    toastPosition: string,
   }
 }
 
@@ -81,6 +84,19 @@ const schema: Store.Schema<StoreType> = {
           type: 'number'
         },
         default: [0]
+      },
+      downloadDir: {
+        type: 'string',
+        default: ''
+      },
+      zoomLevel: {
+        type: 'number',
+        default: 0
+      },
+      toastPosition: {
+        type: 'string',
+        enum: ['top-right', 'top-left', 'bottom-right', 'bottom-left'],
+        default: 'top-right'
       },
     },
     default: {}

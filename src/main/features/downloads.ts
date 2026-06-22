@@ -2,15 +2,31 @@ import {BrowserWindow, app, ipcMain, shell} from 'electron';
 import fs from 'fs';
 import path from 'path';
 import log from 'electron-log';
+import store from '../config.js';
+
+// User-chosen download folder, or the OS Downloads folder when unset/missing.
+const downloadDir = (): string => {
+  const dir = String(store.get('app.downloadDir') ?? '');
+  if (dir && fs.existsSync(dir)) {
+    return dir;
+  }
+  return app.getPath('downloads');
+};
 
 // Save attachment downloads into the Downloads folder and surface progress as an
 // in-app toast (rendered by the downloadToast preload) — independent of the OS
 // notification daemon. Triggered by downloadURL() in externalLinks.ts and by any
 // download the page initiates directly.
 export default (window: BrowserWindow) => {
-  // Renderer asks to reveal a finished file in the file manager.
-  ipcMain.on('open-download', (_event, savePath: string) => {
-    if (savePath) {
+  // Renderer asks to open a finished download with the default app; if that
+  // fails (no handler / missing file), reveal it in the file manager instead.
+  ipcMain.on('open-download', async (_event, savePath: string) => {
+    if (!savePath) {
+      return;
+    }
+    const error = await shell.openPath(savePath);
+    if (error) {
+      log.error(`openPath failed (${error}); revealing in folder: ${savePath}`);
       shell.showItemInFolder(savePath);
     }
   });
@@ -22,11 +38,12 @@ export default (window: BrowserWindow) => {
   };
 
   window.webContents.session.on('will-download', (event, item) => {
-    const savePath = uniquePath(path.join(app.getPath('downloads'), item.getFilename()));
+    const savePath = uniquePath(path.join(downloadDir(), item.getFilename()));
     item.setSavePath(savePath);
 
     const filename = item.getFilename();
-    send('download:start', {filename});
+    const position = String(store.get('app.toastPosition') ?? 'top-right');
+    send('download:start', {filename, position});
 
     item.on('updated', (_event, state) => {
       if (state !== 'progressing' || item.isPaused()) {

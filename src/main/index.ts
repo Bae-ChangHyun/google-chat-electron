@@ -16,6 +16,7 @@ import setupOfflineHandlers from './features/inOnline.js';
 import handleNotification from './features/handleNotification.js';
 import setupDownloads from './features/downloads.js';
 import flashOnUnread from './features/flashOnUnread.js';
+import persistZoom from './features/zoom.js';
 import {chatUrl} from './account.js';
 
 // Keep a global reference of the window object, if you don't, the window will
@@ -42,6 +43,7 @@ if (enforceSingleInstance()) {
       enableContextMenu();
       badgeIcons(mainWindow, trayIcon);
       flashOnUnread(mainWindow);
+      persistZoom(mainWindow);
       closeToTray(mainWindow);
       externalLinks(mainWindow);
       handleNotification(mainWindow);

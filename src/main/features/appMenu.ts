@@ -7,6 +7,7 @@ import store from './../config.js';
 import {toggleExternalLinksGuard} from "./externalLinks.js";
 import environment from "../environment.js";
 import {addAccountUrl, addKnownAccount, chatUrl, getAccountIndex, getKnownAccounts, logoutUrl, parseAccountIndex, setAccountIndex} from "../account.js";
+import {zoomIn, zoomOut, zoomReset} from "./zoom.js";
 
 export default (window: BrowserWindow) => {
 
@@ -101,13 +102,19 @@ export default (window: BrowserWindow) => {
           role: 'togglefullscreen'
         },
         {
-          role: 'resetZoom'
+          label: 'Actual Size',
+          accelerator: 'CommandOrControl+0',
+          click: () => zoomReset(window)
         },
         {
-          role: 'zoomIn'
+          label: 'Zoom In',
+          accelerator: 'CommandOrControl+Plus',
+          click: () => zoomIn(window)
         },
         {
-          role: 'zoomOut'
+          label: 'Zoom Out',
+          accelerator: 'CommandOrControl+-',
+          click: () => zoomOut(window)
         },
       ]
     },
@@ -206,6 +213,47 @@ export default (window: BrowserWindow) => {
             window.webContents.session.setSpellCheckerEnabled( !menuItem.checked );
             store.set('app.disableSpellChecker', menuItem.checked)
           }
+        },
+        {
+          type: 'separator'
+        },
+        {
+          label: 'Set Download Folder…',
+          click: async () => {
+            const current = String(store.get('app.downloadDir') || '');
+            const result = await dialog.showOpenDialog(window, {
+              title: 'Choose download folder',
+              properties: ['openDirectory', 'createDirectory'],
+              defaultPath: current || undefined,
+            });
+            if (!result.canceled && result.filePaths[0]) {
+              store.set('app.downloadDir', result.filePaths[0]);
+            }
+          }
+        },
+        {
+          label: 'Reset Download Folder (system Downloads)',
+          click: () => store.set('app.downloadDir', '')
+        },
+        {
+          type: 'separator'
+        },
+        {
+          label: 'Download Toast Position',
+          submenu: ([
+            ['Top Right', 'top-right'],
+            ['Top Left', 'top-left'],
+            ['Bottom Right', 'bottom-right'],
+            ['Bottom Left', 'bottom-left'],
+          ] as const).map(([label, value]) => ({
+            label,
+            type: 'radio' as const,
+            checked: (store.get('app.toastPosition') || 'top-right') === value,
+            click: () => {
+              store.set('app.toastPosition', value);
+              window.webContents.send('toast:preview', {position: value});
+            }
+          }))
         },
       ]
     },
