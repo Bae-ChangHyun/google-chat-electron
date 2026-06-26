@@ -96,6 +96,18 @@ sudo snap remove --purge google-chat-desktop
 
 </details>
 
+### Install / update (macOS, `.zip`)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bae-ChangHyun/google-chat-electron/main/scripts/install-mac.sh | bash
+```
+
+Picks the right build for your Mac (Apple Silicon / Intel), installs it to `/Applications`, and launches it.
+Re-run to update, or use **Help ▸ Check for Updates** in the app.
+
+> The macOS build is **unsigned** and built on Linux, so the script clears the quarantine flag and ad-hoc
+> signs the app (required to launch, especially on Apple Silicon). It is **not tested on macOS** — please report issues.
+
 ### Run from source (this fork)
 
 ```bash
