@@ -50,7 +50,7 @@ const toast = (
   }
 };
 
-type Release = {tag: string; version: string; notesUrl: string; debUrl: string | null};
+type Release = {tag: string; version: string; notesUrl: string; assetUrl: string | null; assetName: string | null};
 
 // Minimal semver-ish compare on the leading x.y.z (ignores any -suffix).
 const toParts = (v: string): number[] =>
@@ -116,6 +116,20 @@ const download = (url: string, dest: string, onProgress: (percent: number) => vo
     req.setTimeout(60000, () => req.destroy(new Error('download timed out')));
   });
 
+// Pick the release asset for the current platform/arch.
+const pickAsset = (assets: any[]): {name: string; url: string} | null => {
+  const get = (pred: (n: string) => boolean) => {
+    const a = assets.find((x) => pred(String(x.name)));
+    return a ? {name: String(a.name), url: a.browser_download_url} : null;
+  };
+  if (process.platform === 'darwin') {
+    const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+    return get((n) => n.includes('darwin') && n.includes(arch) && n.endsWith('.zip'))
+      || get((n) => n.includes('darwin') && n.endsWith('.zip'));
+  }
+  return get((n) => n.endsWith('.deb'));
+};
+
 const fetchLatest = async (): Promise<Release | null> => {
   const res = await httpsGet(`https://api.github.com/repos/${REPO}/releases/latest`);
   if (res.status !== 200) {
@@ -123,24 +137,59 @@ const fetchLatest = async (): Promise<Release | null> => {
     return null;
   }
   const data = JSON.parse(res.body.toString('utf8'));
-  const asset = (data.assets || []).find((a: any) => String(a.name).endsWith('.deb'));
+  const asset = pickAsset(data.assets || []);
   return {
     tag: data.tag_name,
     version: data.tag_name,
     notesUrl: data.html_url,
-    debUrl: asset ? asset.browser_download_url : null,
+    assetUrl: asset ? asset.url : null,
+    assetName: asset ? asset.name : null,
   };
 };
 
-const installDeb = async (window: BrowserWindow, release: Release) => {
-  if (!release.debUrl) {
+// Run a command, resolving on exit 0 and rejecting with stderr otherwise.
+const runCmd = (cmd: string, args: string[]): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const child = spawn(cmd, args);
+    let err = '';
+    child.stderr.on('data', (d) => {
+      err += d.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(err.trim() || `${cmd} exited ${code}`))));
+  });
+
+// macOS: extract the .app from the zip, ad-hoc sign + de-quarantine it (the build
+// is unsigned), swap it over the current app bundle, and relaunch.
+const macInstall = async (zipPath: string) => {
+  const exe = app.getPath('exe'); // …/Something.app/Contents/MacOS/binary
+  const match = exe.match(/^(.*\.app)\//);
+  if (!match) {
+    throw new Error('could not locate the app bundle');
+  }
+  const appBundle = match[1];
+  const workDir = path.join(os.tmpdir(), 'gce-update');
+
+  await runCmd('rm', ['-rf', workDir]);
+  await runCmd('mkdir', ['-p', workDir]);
+  await runCmd('ditto', ['-x', '-k', zipPath, workDir]); // unzip preserving the bundle
+  const newApp = path.join(workDir, 'google-chat-electron.app');
+  await runCmd('xattr', ['-dr', 'com.apple.quarantine', newApp]).catch(() => undefined);
+  await runCmd('codesign', ['--force', '--deep', '-s', '-', newApp]).catch(() => undefined);
+  await runCmd('rm', ['-rf', appBundle]);
+  await runCmd('ditto', [newApp, appBundle]);
+};
+
+const installUpdate = async (window: BrowserWindow, release: Release) => {
+  if (!release.assetUrl) {
+    // No build for this platform/arch in the release — just open the page.
     shell.openExternal(release.notesUrl);
     return;
   }
-  const dest = path.join(os.tmpdir(), `google-chat-electron-${release.version}.deb`);
+  const dest = path.join(os.tmpdir(), release.assetName || `google-chat-electron-${release.version}`);
   try {
     toast(window, {text: `Downloading ${release.version}…`, percent: 0, state: 'download'});
-    await download(release.debUrl, dest, (percent) => toast(window, {text: `Downloading ${release.version}…`, percent, state: 'download'}));
+    await download(release.assetUrl, dest, (percent) => toast(window, {text: `Downloading ${release.version}…`, percent, state: 'download'}));
   } catch (err) {
     log.error(`update download failed: ${(err as Error).message}`);
     toast(window, {text: 'Update download failed', state: 'error'});
@@ -149,8 +198,11 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
     return;
   }
 
-  // Offer a manual path when the one-click install can't complete (no polkit
-  // prompt, dismissed auth, etc.) so the user is never left stuck.
+  const manualCmd = process.platform === 'darwin'
+    ? `unzip the file and move google-chat-electron.app to /Applications`
+    : `sudo apt install ${dest}`;
+
+  // Offer a manual path when the install can't complete, so the user is never stuck.
   const manualFallback = (reason: string) => {
     log.error(`update install fallback: ${reason}`);
     toast(window, {text: 'Manual install needed', state: 'error'});
@@ -158,10 +210,8 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
       .showMessageBox(window, {
         type: 'warning',
         message: 'Finish the update manually',
-        detail:
-          `The update was downloaded but couldn't be installed automatically.\n\n` +
-          `Open the package to install it, or run:\n  sudo apt install ${dest}`,
-        buttons: ['Open package', 'Show in folder', 'Close'],
+        detail: `The update was downloaded but couldn't be installed automatically.\n\nOpen it to install, or: ${manualCmd}`,
+        buttons: ['Open download', 'Show in folder', 'Close'],
         defaultId: 0,
         cancelId: 2,
       })
@@ -174,11 +224,14 @@ const installDeb = async (window: BrowserWindow, release: Release) => {
       });
   };
 
-  // Install via PackageKit — shows the native password prompt and isn't blocked
-  // by no_new_privs. (sudo/pkexec fail on relaunched apps; see pkconInstall.)
   toast(window, {text: `Installing ${release.version}…`, state: 'install'});
   try {
-    await pkconInstall(dest);
+    if (process.platform === 'darwin') {
+      await macInstall(dest);
+    } else {
+      // Linux: PackageKit shows the native prompt and isn't blocked by no_new_privs.
+      await pkconInstall(dest);
+    }
   } catch (err) {
     manualFallback(`install failed: ${(err as Error).message}`);
     return;
@@ -241,7 +294,7 @@ export const checkForUpdates = async (window: BrowserWindow, silent: boolean) =>
       cancelId: 2,
     });
     if (response === 0) {
-      await installDeb(window, release);
+      await installUpdate(window, release);
     } else if (response === 1) {
       shell.openExternal(release.notesUrl);
     }
